@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>圣诞快乐 🎄</title>
+    <style>
+        :root {
+            --tree-green: #054a29;
+            --ornament-red: #e41d1a;
+            --gold: #ffd700;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a3a5a 0%, #050b1a 100%);
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #snow-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 圣诞树 SVG 优化 */
+        .tree-wrapper {
+            position: relative;
+            cursor: pointer;
+            filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.4));
+            animation: tree-sway 3s ease-in-out infinite;
+        }
+
+        .tree-img {
+            width: 500px;
+            /* 与原来 svg 宽度一致 */
+            height: 560px;
+            /* 与原来 svg 高度一致 */
+            display: block;
+            pointer-events: none;
+            /* 仅装饰，不拦截点击 */
+        }
+
+        @keyframes tree-sway {
+
+            0%,
+            100% {
+                transform: rotate(-1.5deg);
+            }
+
+            50% {
+                transform: rotate(1.5deg);
+            }
+        }
+
+        .lights {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            pointer-events: none;
+        }
+
+        .light {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            from {
+                opacity: 0.2;
+            }
+
+            to {
+                opacity: 1;
+                box-shadow: 0 0 8px #fff;
+            }
+        }
+
+        /* 文字样式 */
+        #message-display {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            z-index: 3;
+        }
+
+        #greet-title {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(to bottom, #fff, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #greet-text {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-top: 10px;
+            padding: 0 30px;
+            line-height: 1.5;
+        }
+
+        /* 控制区 */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border-radius: 25px;
+            border: none;
+            background: var(--ornament-red);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* 音乐旋转动画 */
+        .music-icon {
+            font-size: 20px;
+        }
+
+        .playing {
+            animation: rotate 4s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 提示层 */
+        #audio-tip {
+            position: fixed;
+            top: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        /* 弹窗 */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99;
+        }
+
+        #edit-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 25px;
+            border-radius: 15px;
+            z-index: 100;
+            width: 80%;
+            max-width: 320px;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            margin: 10px 0;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body onclick="tryAutoPlay()">
+
+    <div id="audio-tip">点击屏幕任何地方开启音乐 🎵</div>
+    <canvas id="snow-canvas"></canvas>
+
+    <div class="container">
+        <div class="tree-wrapper" onclick="createBurst(event)">
+            <img src="img/tree.png" alt="Christmas Tree" class="tree-img">
+            <div class="lights" id="lights-container"></div>
+        </div>
+
+        <div id="message-display">
+            <h1 id="greet-title">Merry Christmas</h1>
+            <p id="greet-text">点击屏幕播放音乐<br>点击圣诞树有惊喜</p>
+        </div>
+
+        <div class="controls">
+            <button id="music-btn" onclick="toggleMusic(event)">
+                <span id="music-icon" class="music-icon">🎵</span> 音乐
+            </button>
+            <button onclick="openModal(event)" style="background: #2d5a27;">✍️ 定制祝福</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="closeModal()"></div>
+    <div id="edit-modal" onclick="event.stopPropagation()">
+        <h3 style="margin:0 0 15px 0; color:#333; text-align: center;">定制你的祝福</h3>
+        <input type="text" id="input-title" placeholder="对方的名字 (如: 亲爱的)">
+        <textarea id="input-text" rows="3" placeholder="想说的话..."></textarea>
+        <button onclick="saveMessage()" style="width:100%">生成并复制链接</button>
+    </div>
+
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://music.163.com/song/media/outer/url?id=2652594677.mp3" type="audio/mpeg">
+    </audio>
+
+
+
+    <script>
+        const music = document.getElementById('bg-music');
+        const musicBtn = document.getElementById('music-btn');
+        const musicIcon = document.getElementById('music-icon');
+        const audioTip = document.getElementById('audio-tip');
+        let isPlaying = false;
+        let isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+        let audioError = false;
+
+        // 初始化音频
+        function initAudio() {
+            // 微信环境特殊处理
+            if (isWeChat) {
+                audioTip.textContent = '点击屏幕开启音乐 🎵';
+            }
+            
+            // 添加错误监听
+            music.addEventListener('error', function(e) {
+                console.log('音频加载失败:', e);
+                audioError = true;
+                audioTip.textContent = '音乐加载失败，点击重试';
+                audioTip.style.display = 'block';
+            });
+            
+            // 添加加载完成监听
+            music.addEventListener('canplaythrough', function() {
+                console.log('音频加载完成');
+            });
+        }
+
+        // 核心：微信/手机端必须点击一下才能播
+        function tryAutoPlay() {
+            if (!isPlaying && !audioError) {
+                playAudio();
+                audioTip.style.display = 'none';
+            } else if (audioError) {
+                // 如果音频加载失败，重试
+                resetAudio();
+                playAudio();
+            }
+        }
+
+        function playAudio() {
+            music.play().then(() => {
+                isPlaying = true;
+                musicIcon.classList.add('playing');
+                audioError = false;
+                audioTip.style.display = 'none';
+            }).catch(e => {
+                console.log("等待用户点击播放:", e.message);
+                if (isWeChat) {
+                    audioTip.style.display = 'block';
+                }
+            });
+        }
+
+        function toggleMusic(e) {
+            e.stopPropagation();
+            
+            if (audioError) {
+                resetAudio();
+            }
+            
+            if (music.paused) {
+                music.play().then(() => {
+                    musicIcon.classList.add('playing');
+                    isPlaying = true;
+                    audioError = false;
+                    audioTip.style.display = 'none';
+                }).catch(e => {
+                    console.log("播放失败:", e);
+                    audioTip.style.display = 'block';
+                });
+            } else {
+                music.pause();
+                musicIcon.classList.remove('playing');
+                isPlaying = false;
+            }
+        }
+        
+        // 重置音频（用于错误重试）
+        function resetAudio() {
+            music.pause();
+            music.currentTime = 0;
+            music.load();
+            audioError = false;
+        }
+
+        // --- 视觉动画逻辑 ---
+        const canvas = document.getElementById('snow-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, snowflakes = [];
+
+        function initCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            snowflakes = Array.from({ length: 80 }, () => ({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                r: Math.random() * 3 + 1,
+                speed: Math.random() * 1 + 0.5
+            }));
+        }
+
+        function drawSnow() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.beginPath();
+            snowflakes.forEach(s => {
+                ctx.moveTo(s.x, s.y);
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                s.y += s.speed;
+                if (s.y > height) s.y = -10;
+            });
+            ctx.fill();
+            requestAnimationFrame(drawSnow);
+        }
+
+        function createLights() {
+            const container = document.getElementById('lights-container');
+            const colors = ['#ff0000', '#ffd700', '#ffffff', '#00ff00'];
+            for (let i = 0; i < 20; i++) {
+                const light = document.createElement('div');
+                light.className = 'light';
+                light.style.left = (40 + Math.random() * 20) + '%';
+                light.style.top = (30 + Math.random() * 50) + '%';
+                light.style.backgroundColor = colors[i % colors.length];
+                light.style.animationDelay = (Math.random() * 2) + 's';
+                container.appendChild(light);
+            }
+        }
+
+        function createBurst(e) {
+            const items = ['⭐', '❄️', '🎁', '✨', '🎄'];
+            for (let i = 0; i < 12; i++) {
+                const p = document.createElement('div');
+                p.innerText = items[Math.floor(Math.random() * items.length)];
+                p.style.cssText = `position:fixed; left:${e.clientX}px; top:${e.clientY}px; pointer-events:none; z-index:100; font-size:24px;`;
+                document.body.appendChild(p);
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 100 + Math.random() * 50;
+                p.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px) scale(0)`, opacity: 0 }
+                ], { duration: 1000, easing: 'ease-out' }).onfinish = () => p.remove();
+            }
+        }
+
+        // --- URL 参数定制逻辑 ---
+        function openModal(e) { e.stopPropagation(); document.getElementById('edit-modal').style.display = 'block'; document.getElementById('overlay').style.display = 'block'; }
+        function closeModal() { document.getElementById('edit-modal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
+
+        function saveMessage() {
+            const title = document.getElementById('input-title').value;
+            const msg = document.getElementById('input-text').value;
+            const url = new URL(window.location.href.split('?')[0]);
+            if (title) url.searchParams.set('t', encodeURIComponent(title));
+            if (msg) url.searchParams.set('m', encodeURIComponent(msg));
+
+            // 兼容性复制
+            const input = document.createElement('input');
+            input.value = url.href;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+
+            alert("链接已自动复制！发给朋友打开即可。");
+            window.location.href = url.href;
+        }
+
+        window.onload = () => {
+            initAudio();
+            initCanvas();
+            drawSnow();
+            createLights();
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('t')) document.getElementById('greet-title').innerText = decodeURIComponent(params.get('t'));
+            if (params.has('m')) document.getElementById('greet-text').innerText = decodeURIComponent(params.get('m'));
+        };
+        window.onresize = initCanvas;
+    </script>
+</body>
+
+</html>
